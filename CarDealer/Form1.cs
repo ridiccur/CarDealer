@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -10,6 +10,9 @@ namespace CarDealer
     {
         private BindingList<Car> cars = new BindingList<Car>();
 
+        private string lastSortedColumn = null;
+        private bool isAscending = true;
+
         public Form1()
         {
             InitializeComponent();
@@ -17,6 +20,7 @@ namespace CarDealer
             LoadSampleData();
         }
 
+        // Настройка DataGridView
         private void SetupDataGridView()
         {
             dataGridView1.AutoGenerateColumns = false;
@@ -25,7 +29,7 @@ namespace CarDealer
             var brandColumn = new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "Brand",
-                HeaderText = "�����",
+                HeaderText = "Бренд",
                 Name = "Brand"
             };
             dataGridView1.Columns.Add(brandColumn);
@@ -33,7 +37,7 @@ namespace CarDealer
             var modelColumn = new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "Model",
-                HeaderText = "������",
+                HeaderText = "Модель",
                 Name = "Model"
             };
             dataGridView1.Columns.Add(modelColumn);
@@ -41,7 +45,7 @@ namespace CarDealer
             var yearColumn = new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "Year",
-                HeaderText = "���",
+                HeaderText = "Год",
                 Name = "Year"
             };
             dataGridView1.Columns.Add(yearColumn);
@@ -49,7 +53,7 @@ namespace CarDealer
             var inStockColumn = new DataGridViewCheckBoxColumn
             {
                 DataPropertyName = "InStock",
-                HeaderText = "� �������",
+                HeaderText = "В наличии",
                 Name = "InStock"
             };
             dataGridView1.Columns.Add(inStockColumn);
@@ -57,7 +61,7 @@ namespace CarDealer
             var countColumn = new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "Count",
-                HeaderText = "����������",
+                HeaderText = "Количество",
                 Name = "Count"
             };
             dataGridView1.Columns.Add(countColumn);
@@ -65,7 +69,7 @@ namespace CarDealer
             var trimColumn = new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "Trim",
-                HeaderText = "������������",
+                HeaderText = "Комплектация",
                 Name = "Trim"
             };
             dataGridView1.Columns.Add(trimColumn);
@@ -73,7 +77,7 @@ namespace CarDealer
             var priceColumn = new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "Price",
-                HeaderText = "����",
+                HeaderText = "Цена",
                 Name = "Price"
             };
             dataGridView1.Columns.Add(priceColumn);
@@ -81,7 +85,7 @@ namespace CarDealer
             var discountColumn = new DataGridViewTextBoxColumn
             {
                 DataPropertyName = "Discounts",
-                HeaderText = "������",
+                HeaderText = "Скидки",
                 Name = "Discounts"
             };
             dataGridView1.Columns.Add(discountColumn);
@@ -91,14 +95,17 @@ namespace CarDealer
             dataGridView1.ColumnHeaderMouseClick += DataGridView1_ColumnHeaderMouseClick;
         }
 
+        // Начальные данные
         private void LoadSampleData()
         {
             cars.Add(new Car("Toyota", "Camry", 2024, true, 5, "Comfort", 2_500_000, "Trade-in"));
             cars.Add(new Car("BMW", "X5", 2025, false, 0, "M Sport", 8_500_000, "Military"));
             cars.Add(new Car("Hyundai", "Tucson", 2023, true, 3, "Premium", 2_200_000, ""));
-            cars.Add(new Car("Lada", "Granta", 2024, true, 10, "Classic", 750_000, "������������"));
-            cars.Add(new Car("Lada", "Vesta", 2025, true, 7, "Comfort", 1_100_000, "������������"));
-            cars.Add(new Car("Lada", "Niva Travel", 2023, true, 4, "Luxury", 1_300_000, "��������"));
+            cars.Add(new Car("Lada", "Granta", 2024, true, 10, "Classic", 750_000, "Госпрограмма"));
+            cars.Add(new Car("Lada", "Vesta", 2025, true, 7, "Comfort", 1_100_000, "Господдержка"));
+            cars.Add(new Car("Lada", "Niva Travel", 2023, true, 4, "Luxury", 1_300_000, "Семейная"));
+
+            UpdateHeaders();
         }
 
         private void DataGridView1_ColumnHeaderMouseClick(object sender, DataGridViewCellMouseEventArgs e)
@@ -107,19 +114,61 @@ namespace CarDealer
             var property = TypeDescriptor.GetProperties(typeof(Car))[columnName];
             if (property == null) return;
 
-            var sorted = cars.ToList(); // �������������� BindingList � List
-            sorted.Sort((x, y) => Comparer<object>.Default.Compare(property.GetValue(x), property.GetValue(y)));
+            // Инвертирование порядка сортировки при повторном клике на тот же столбец
+            if (lastSortedColumn == columnName)
+            {
+                isAscending = !isAscending;
+            }
+            else
+            {
+                lastSortedColumn = columnName;
+                isAscending = true;
+            }
+
+            var sorted = cars.ToList();
+
+            int comparison = 0;
+            sorted.Sort((x, y) =>
+            {
+                var valX = property.GetValue(x);
+                var valY = property.GetValue(y);
+
+                if (valX == null && valY == null) return 0;
+                if (valX == null) return isAscending ? -1 : 1;
+                if (valY == null) return isAscending ? 1 : -1;
+
+                comparison = Comparer<object>.Default.Compare(valX, valY);
+
+                return isAscending ? comparison : -comparison;
+            });
 
             cars.Clear();
             foreach (var car in sorted)
             {
                 cars.Add(car);
             }
+
+            UpdateHeaders();
         }
 
+        // Обновление заголовков столбцов для отображения порядка сортировки
+        private void UpdateHeaders()
+        {
+            foreach (DataGridViewColumn col in dataGridView1.Columns)
+            {
+                var headerText = col.Name;
+                if (col.Name == lastSortedColumn)
+                {
+                    headerText += isAscending ? " ↑" : " ↓";
+                }
+                col.HeaderText = headerText;
+            }
+        }
+
+        // Добавление и удаление строк
         private void btnAdd_Click(object sender, EventArgs e)
         {
-            var newCar = new Car("�����", "����������", DateTime.Now.Year, false, 0, "Base", 1_000_000, "");
+            var newCar = new Car("Новый", "Автомобиль", DateTime.Now.Year, false, 0, "Base", 1_000_000, "");
             cars.Add(newCar);
         }
 
